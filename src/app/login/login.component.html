@@ -1,18 +1,6 @@
 <h1>Web Dev 2 - Google Login</h1>
 
-<div *ngIf="auth.user$ | async as user; else login">
-    <pre>
-    {{ user | json }}
-  </pre>
-
-    <hr>
-    <button class="button" (click)="auth.signOut()">Sign Out</button>
-
-</div>
-
-<ng-template #login>
-    <button class="button" (click)="auth.googleSignin()">Login with Google</button>
-</ng-template>
+<button class="button">Login with Google</button>
 
 <p>
     <a routerLink="/user-profile">User Profile</a>
