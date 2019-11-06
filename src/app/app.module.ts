@@ -13,11 +13,11 @@ import { AngularFireAuthModule } from '@angular/fire/auth';
 
 import { environment } from '../environments/environment.prod';
 
-import { SuperSecretComponent } from './super-secret/super-secret.component';
 import { UserProfileComponent } from './user-profile/user-profile.component';
+import { LoginComponent } from './login/login.component';
 
 @NgModule({
-  declarations: [AppComponent, SuperSecretComponent, UserProfileComponent],
+  declarations: [AppComponent, UserProfileComponent, LoginComponent],
   imports: [
     BrowserModule,
     AppRoutingModule,
