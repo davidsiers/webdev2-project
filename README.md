@@ -2,8 +2,8 @@
 
 ## Setup
 
-```
-git clone <this-repo>
-npm i
-ng s
+``` sh
+git clone https://github.com/davidsiers/webdev2-project.git
+npm install
+ng serve
 ```
