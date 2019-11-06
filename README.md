@@ -2,8 +2,8 @@
 
 ## Setup
 
-```
-git clone <this-repo>
+``` sh
+git clone https://github.com/davidsiers/webdev2-project.git
 npm i
 ng s
 ```
