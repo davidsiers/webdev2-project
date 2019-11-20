@@ -254,7 +254,7 @@ export class ItemDetailComponent implements OnInit {
 
 The item form component is another child of `item-list` that handles adding new tasks to the list. It creates a new instance of the `Item` class and binds its title attribute to the form input using the `ngModel` directive.
 
-### Form Validation
+### item.form.component.html
 There are several different form validation methods in Angular. In this example, I am going to take advantage of the `if-then-else` syntax introduced in Angular. This allows us to use a ng-template for valid forms and another for errors.
 ```html
 <input placeholder="Item Title" class="form-control" [(ngModel)]="item.title" required minlength="2" maxlength="23" #title='ngModel' autofocus>
@@ -271,6 +271,8 @@ There are several different form validation methods in Angular. In this example,
     <p class="text-danger">form contains errors!</p>
 </ng-template>
 ```
+
+### item.form.component.ts
 Now we can add the item to the database by using the `createItem` function defined in the service.
 ```typescript
 export class ItemFormComponent implements OnInit {
