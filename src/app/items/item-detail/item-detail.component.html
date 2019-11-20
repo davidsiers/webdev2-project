@@ -1,0 +1,7 @@
+<h5>{{ item.title || 'missing title' }}</h5>
+Active: {{ item.active }}<br> Timestamp: {{ item.timeStamp | date: 'medium' }}<br><br>
+
+<span class="button" (click)='updateTimeStamp()'>Update Timestamp</span><br>
+<span class="button" *ngIf='item.active' (click)='updateActive(false)'>Mark Complete</span>
+<span class="button" *ngIf='!item.active' (click)='updateActive(true)'>Mark Active</span><br>
+<span class="button" (click)='deleteItem()'>Delete</span>

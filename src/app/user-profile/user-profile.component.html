@@ -21,5 +21,6 @@
         <img [src]="user.photoURL">
         <p>UID: {{ user.uid }}</p>
         <button class="button" (click)="auth.signOut()">Logout</button>
+        <button class="button" routerLink="/items">View Items</button>
     </div>
 </ng-template>
