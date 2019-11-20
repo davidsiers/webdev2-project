@@ -34,14 +34,14 @@ ng g component items/item-form
 ## Step 2: Define the Item Class
 It’s generally good practice to define data objects in their own TypeScript class.
 
-**item.ts**
+**src/app/items/shared/item.ts**
 ```typescript
 export class Item {
-  $key: string;
-  title: string;
-  body: string;
-  timeStamp: number;
-  active: boolean = true;
+    id: string;
+    title: string;
+    body: string;
+    timeStamp: number;
+    active: true;
 }
 ```
 
@@ -57,109 +57,156 @@ This is where all the CRUD magic happens. The service will perform 6 basic opera
 
 ### Declaring Variables and Helper Functions
 Public variables for item and items are declared for the Firebase observables. We also declare a variable for the path in the NoSQL database. When we perform one of the get operations, the observable variables will be defined. In most cases, you will call a get method from a component during the `NgInit()` lifecycle hook. I am also declaring a helper function to handle errors, which simply logs the error for debugging.
+### item.service.ts
 ```typescript
 import { Injectable } from '@angular/core';
-import { FirebaseListObservable, FirebaseObjectObservable, AngularFireDatabase } from 'angularfire2/database';
+import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/firestore';
 import { Item } from './item';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class ItemService {
 
-  private basePath: string = '/items';
+  private itemsCollection: AngularFirestoreCollection<Item>; //  list of objects
+  private items: Observable<Item[]>; //  list of objects
+  item: Observable<Item> = null; //   single object
 
-  items: FirebaseListObservable<Item[]> = null; //  list of objects
-  item: FirebaseObjectObservable<Item> = null; //   single object
-
-  constructor(private db: AngularFireDatabase) { }
-}
+  constructor(
+    public afs: AngularFirestore
+  ) {
+    this.itemsCollection = this.afs.collection('items');
+    this.items = this.itemsCollection.snapshotChanges().pipe(
+        map(actions => actions.map(a => {
+          const data = a.payload.doc.data() as Item;
+          const id = a.payload.doc.id;
+          console.log(data);
+          return { id, ...data };
+        }))
+      );
+  }
 ```
 ### Getting the Observables from Firebase
 After calling one of these methods, the data will be synced up with Firebase. Changes made via the UI will be instantly reflected in the database console, and vice versa.
+### item.service.ts -- add this code after the constructor
 ```typescript
-getItemsList(query={}): FirebaseListObservable<Item[]> {
-  this.items = this.db.list(this.basePath, {
-    query: query
-  });
-  return this.items
-}
-
-// Return a single observable item
-getItem(key: string): FirebaseObjectObservable<Item> {
-  const itemPath =  `${this.basePath}/${key}`;
-  this.item = this.db.object(itemPath)
-  return this.item
-}
+getItemsList() {
+    return this.items;
+  }
 ```
 ### Creating Updating, and Deleting Data
 The remaining functions do not have return values. They will update the data from the list observable, held in the `items` variable from the previous section.
+### item.service.ts -- add this code after getItemsList()
 ```typescript
 createItem(item: Item): void  {
-   this.items.push(item)
-     .catch(error => this.handleError(error))
- }
+    const date = new Date().getTime();
+    this.itemsCollection.doc(date.toString()).set({
+        id: date.toString(),
+        active: true,
+        title: item.title,
+        timeStamp: date,
+        body: 'test'
+    })
+        .catch(error => this.handleError(error));
+}
 
+// Update an existing item
+updateItem(id: string, value: any): void {
+    this.itemsCollection.doc(id).set(value)
+    .catch(error => this.handleError(error));
+}
 
- // Update an existing item
- updateItem(key: string, value: any): void {
-   this.items.update(key, value)
-     .catch(error => this.handleError(error))
- }
+// Deletes a single item
+deleteItem(id: string): void {
+    this.itemsCollection.doc(id).delete()
+    .catch(error => this.handleError(error));
+}
 
- // Deletes a single item
- deleteItem(key: string): void {
-     this.items.remove(key)
-       .catch(error => this.handleError(error))
- }
-
- // Deletes the entire list of items
- deleteAll(): void {
-     this.items.remove()
-       .catch(error => this.handleError(error))
- }
-
- // Default error handling for all actions
- private handleError(error) {
-   console.log(error)
- }
-```
-### Extracting Data from the Observable
-If you require a snapshot of the data at a given time, you get the regular JavaScript object by subscribing to the observable. This is usually not necessary because we can unwrap observables using the `async` pipe in the template as we will see in the next section.
-```typescript
-this.item = this.db.object('/item', { preserveSnapshot: true });
-  this.item.subscribe(snapshot => {
-  console.log(snapshot.key)
-  console.log(snapshot.val())
-});
+// Default error handling for all actions
+private handleError(error) {
+    console.log(error);
+}
 ```
 ## Step 4: Item List Component - The Parent
-The `<item-list>` is the parent component that will loop over the `FirebaseListObservable` and handle actions related the entire list, mainly deleting all items from the list.
+The `<app-item-list>` is the parent component that will loop over the `FirebaseListObservable` and handle actions related the entire list, mainly deleting all items from the list.
+
+### user-profile.component.html
+
+```html
+<div *ngIf="auth.user$ | async; then authenticated else guest">
+    <!-- template will replace this div -->
+</div>
+
+<!-- User NOT logged in -->
+<ng-template #guest>
+    <h3>Hi, GUEST</h3>
+    <p>Login to get started...</p>
+
+    <button class="button" (click)="auth.googleSignin()">
+  <i class="fa fa-google"></i> Connect Google
+</button>
+
+</ng-template>
+
+
+<!-- User logged in -->
+<ng-template #authenticated>
+    <div *ngIf="auth.user$ | async as user">
+        <h3>Howdy, {{ user.displayName }}</h3>
+        <img [src]="user.photoURL">
+        <p>UID: {{ user.uid }}</p>
+        <button class="button" (click)="auth.signOut()">Logout</button>
+        <button class="button" routerLink="/items">View Items</button>
+    </div>
+</ng-template>
+```
+
+### app.routing.module.ts -- modify the routes array
+```typescript
+const routes: Routes = [
+  { path: '', component: LoginComponent },
+  { path: 'user-profile', component: UserProfileComponent, canActivate: [AuthGuard] },
+  { path: 'items', component: ItemsListComponent }
+];
+```
 
 ### items-list.component.html
 Let’s start in the template. We loop over the items using `*ngFor`, but the important thing to note is the `async` pipe. It will subscribe and unwrap any observable as changes happen in the data stream.
 
 Also, notice we are passing each unwrapped item object to the child component. More on this in the next section.
 ```html
-<div *ngFor="let item of items | async" >
-  <item-detail [item]='item'></item-detail>
+<div *ngFor="let item of items | async">
+    <app-item-detail [item]='item'></app-item-detail>
 </div>
-<button (click)='deleteItems()'>Delete Entire List</button>
+<app-item-form></app-item-form>
 ```
 ### items-list.component.ts
 Now we need to define the items variable when the component is initialized using `NgOnInit`. We also create a function to delete the entire list that can be called on the button’s click event in the template.
 ```typescript
+import { Component, OnInit } from '@angular/core';
+import { Item } from '../shared/item';
+import { ItemService } from '../shared/item.service';
+import { Observable } from 'rxjs';
+
+@Component({
+  selector: 'app-items-list',
+  templateUrl: './items-list.component.html',
+  styleUrls: ['./items-list.component.scss']
+})
+
 export class ItemsListComponent implements OnInit {
 
-  public items: FirebaseListObservable<Item[]>;
+  public items: Observable<Item[]>;
 
   constructor(private itemSvc: ItemService) { }
 
   ngOnInit() {
-    this.items = this.itemSvc.getItemsList({limitToLast: 5})
+    console.log(this.items);
+    return this.items = this.itemSvc.getItemsList();
   }
 
-  deleteItems() {
-    this.itemSvc.deleteAll()
-  }
 }
 ```
 
@@ -168,34 +215,37 @@ export class ItemsListComponent implements OnInit {
 The `<item-detail>` component is rendered for each task returned by the list observable. The `@Input` decorator is used to pass data from a parent to a child via the template - in this case it an `Item` object after being unwrapped by the async pipe. From the template we will display the items attributes, then create a few buttons to trigger actions from the service.
 ```html
 <h5>{{ item.title || 'missing title' }}</h5>
-Active: {{ item.active }}
-{{ item.timeStamp | date: 'medium' }}
+Active: {{ item.active }}<br> Timestamp: {{ item.timeStamp | date: 'medium' }}<br><br>
 
-<span (click)='updateTimeStamp()'>Update Timestamp</span>
-<span *ngIf='item.active' (click)='updateActive(false)'>Mark Complete</span>
-<span *ngIf='!item.active' (click)='updateActive(true)'>Mark Active</span>
-<span (click)='deleteItem()'>Delete</span>
+<span class="button" (click)='updateTimeStamp()'>Update Timestamp</span><br>
+<span class="button" *ngIf='item.active' (click)='updateActive(false)'>Mark Complete</span>
+<span class="button" *ngIf='!item.active' (click)='updateActive(true)'>Mark Active</span><br>
+<span class="button" (click)='deleteItem()'>Delete</span>
 ```
 ### items-detail.component.
 All functions in this component are scoped to modifying an existing item. Here’s a few examples of how use the service to update items in the database.
 ```typescript
-export class ItemDetailComponent {
+export class ItemDetailComponent implements OnInit {
 
   @Input() item: Item;
 
   constructor(private itemSvc: ItemService) { }
 
+  ngOnInit() {}
+
   updateTimeStamp() {
-    let date = new Date().getTime()
-    this.itemSvc.updateItem(this.item.$key, { timeStamp: date })
+    const date = new Date().getTime();
+    this.item.timeStamp = date;
+    this.itemSvc.updateItem(this.item.id, this.item );
   }
 
-  updateActive(value: boolean) {
-    this.itemSvc.updateItem(this.item.$key, { active: value })
+  updateActive(value) {
+    this.item.active = value;
+    this.itemSvc.updateItem(this.item.id, this.item);
   }
 
   deleteItem() {
-    this.itemSvc.deleteItem(this.item.$key)
+    this.itemSvc.deleteItem(this.item.id);
   }
 
 }
@@ -207,34 +257,34 @@ The item form component is another child of `item-list` that handles adding new 
 ### Form Validation
 There are several different form validation methods in Angular. In this example, I am going to take advantage of the `if-then-else` syntax introduced in Angular. This allows us to use a ng-template for valid forms and another for errors.
 ```html
-<input placeholder="Item Title" class="form-control"
-[(ngModel)]="item.title"
-required minlength="2" maxlength="23"
-#title='ngModel' autofocus>
+<input placeholder="Item Title" class="form-control" [(ngModel)]="item.title" required minlength="2" maxlength="23" #title='ngModel' autofocus>
 <div *ngIf="title.dirty">
-  <span *ngIf='title.errors; then errors else valid'>template renders here...</span>
+    <span *ngIf='title.errors; then errors else valid'>template renders here...</span>
 </div>
 
-<button class="btn btn-primary" (click)='createItem()' [disabled]="!title.valid">Create</button>
+<button class="button btn btn-primary" (click)='createItem()' [disabled]="!title.valid">Create</button>
 <ng-template #valid>
-<p class="text-success">looks good!</p>
+    <p class="text-success">looks good!</p>
 </ng-template>
 
 <ng-template #errors>
-<p class="text-danger">form contains errors!</p>
+    <p class="text-danger">form contains errors!</p>
 </ng-template>
 ```
 Now we can add the item to the database by using the `createItem` function defined in the service.
 ```typescript
-export class ItemFormComponent {
+export class ItemFormComponent implements OnInit {
 
   item: Item = new Item();
 
   constructor(private itemSvc: ItemService) { }
 
+  ngOnInit() {
+  }
+
   createItem() {
-    this.itemSvc.createItem(this.item)
-    this.item = new Item() // reset item
+    this.itemSvc.createItem(this.item);
+    this.item = new Item(); // reset item
   }
 }
 ```
